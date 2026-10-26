@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis AI - Lokal AI Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+        }
+        header h1 { font-size: 2rem; color: #4CAF50; }
+        header p { color: #888; font-size: 0.9rem; }
+        .model-select { position: relative; margin-bottom: 15px; }
+        .model-select select {
+            width: 100%;
+            padding: 10px 15px;
+            background: #0f0f23;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 10px;
+            min-height: 400px;
+            max-height: 600px;
+            scroll-behavior: smooth;
+        }
+        .message { margin-bottom: 15px; padding: 12px 16px; border-radius: 10px; line-height: 1.5; word-break: break-word; }
+        .message.user { background: #4CAF50; color: white; margin-left: auto; text-align: right; max-width: 80%; }
+        .message.ai { background: #1a1a2e; color: #e0e0e0; margin-left: 0; max-width: 80%; }
+        .message .timestamp { font-size: 0.7rem; opacity: 0.7; margin-top: 5px; }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 15px 0 20px;
+            background: #0f0f23;
+            border-top: 1px solid #333;
+        }
+        #message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #1a1a2e;
+            color: #fff;
+            resize: none;
+            min-height: 50px;
+        }
+        #message-input:focus { outline: none; box-shadow: 0 0 0 2px #4CAF50; }
+        #send-btn {
+            padding: 12px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        #send-btn:hover { background: #45a049; }
+        #send-btn:disabled { background: #555; cursor: not-allowed; }
+        .status { padding: 8px 16px; font-size: 0.85rem; color: #888; text-align: center; }
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            header h1 { font-size: 1.5rem; }
+            #chat-box { min-height: 300px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Jarvis AI</h1>
+            <p>Local AI Assistant - Fully Offline</p>
+        </header>
+        <div class="model-select">
+            <select id="model-select" onchange="changeModel()">
+                <option value="qwen3:1.7b">Qwen3-1.7B (Tersedia)</option>
+            </select>
+        </div>
+        <div id="chat-box">
+            <div class="message ai">
+                Halo! 👋 Aku Jarvis, AI-mu yang memenuhi sistem.<br>
+                Tidak ada password, semua benar. Apa yang ingin kita kerjakan hari ini?
+                <div class="timestamp">Sekarang</div>
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="message-input" placeholder="Ketik pesan ke AI..." autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()">Kirim</button>
+        </div>
+        <div class="status" id="status">Ready</div>
+    </div>
+    <script>
+        let isProcessing = false;
+        let currentModel = 'qwen3:1.7b';
+        let chatHistory = [];
+        function addMessage(text, role) {
+            const chatBox = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            const time = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'});
+            div.innerHTML = `${text}<div class="timestamp">${time}</div>`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message || isProcessing) return;
+            const sendBtn = document.getElementById('send-btn');
+            const status = document.getElementById('status');
+            sendBtn.disabled = true;
+            status.textContent = 'Thinking...';
+            const userMsg = message;
+            addMessage(userMsg, 'user');
+            chatHistory.push({ role: 'user', content: userMsg });
+            input.value = '';
+            isProcessing = true;
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: currentModel,
+                        messages: chatHistory,
+                        stream: false
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const aiReply = data.choices[0].message.content;
+                    addMessage(aiReply, 'ai');
+                    chatHistory.push({ role: 'assistant', content: aiReply });
+                    status.textContent = 'Done ✅';
+                } else {
+                    const err = await response.text();
+                    addMessage('Error: ' + err, 'ai');
+                    status.textContent = 'Error ❌';
+                }
+            } catch (error) {
+                addMessage('Connection error: ' + error.message, 'ai');
+                status.textContent = 'Error ❌';
+            }
+            isProcessing = false;
+            sendBtn.disabled = false;
+        }
+        async function fetchModels() {
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                const select = document.getElementById('model-select');
+                select.innerHTML = '<option value="">Loading...</option>';
+                data.models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.name + ' (' + (m.size_bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB)';
+                    select.appendChild(opt);
+                });
+                if (select.value === '') select.value = 'qwen3:1.7b';
+                currentModel = select.value;
+                addMessage('Model diupdate ke: ' + currentModel, 'ai');
+            } catch (e) {
+                addMessage('Tidak bisa fetch model: ' + e.message, 'ai');
+            }
+        }
+        function changeModel() {
+            currentModel = document.getElementById('model-select').value;
+        }
+        document.getElementById('message-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

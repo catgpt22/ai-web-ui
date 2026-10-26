@@ -14,7 +14,7 @@ Offline personal AI assistant for Ahmad.
 3. Start AI service: `systemctl --user start ai-proyek`
 
 ## Web Interface
-- Frontend: `public/index.html`
+- Frontend: `index.html` (browser interface)
 - Backend: `server.py` (Flask proxy for Ollama API)
 
 ## Access
